@@ -1,0 +1,49 @@
+{
+  "_format": "hh3-sol-build-info-1",
+  "id": "solc-0_8_34-c0ca365329512b486d6566badc0b4ea224394b43",
+  "solcVersion": "0.8.34",
+  "solcLongVersion": "0.8.34+commit.80d5c536",
+  "compilerType": "solc",
+  "toolVersions": {
+    "hardhat": "3.21.0"
+  },
+  "userSourceNameMap": {
+    "contracts/WarisEstate.sol": "project/contracts/WarisEstate.sol"
+  },
+  "input": {
+    "language": "Solidity",
+    "settings": {
+      "evmVersion": "osaka",
+      "optimizer": {
+        "enabled": true,
+        "runs": 200
+      },
+      "outputSelection": {
+        "*": {
+          "": [
+            "ast"
+          ],
+          "*": [
+            "abi",
+            "evm.bytecode.linkReferences",
+            "evm.bytecode.object",
+            "evm.bytecode.opcodes",
+            "evm.bytecode.sourceMap",
+            "evm.deployedBytecode.immutableReferences",
+            "evm.deployedBytecode.linkReferences",
+            "evm.deployedBytecode.object",
+            "evm.deployedBytecode.opcodes",
+            "evm.deployedBytecode.sourceMap",
+            "evm.methodIdentifiers"
+          ]
+        }
+      },
+      "remappings": []
+    },
+    "sources": {
+      "project/contracts/WarisEstate.sol": {
+        "content": "\r\n // SPDX-License-Identifier: MIT\r\npragma solidity ^0.8.24;\r\n\r\ncontract WarisEstate {\r\n    struct Beneficiary {\r\n        address wallet;\r\n        uint256 sharePercent;\r\n    }\r\n\r\n    struct Estate {\r\n        address owner;\r\n        uint256 lastCheckIn;\r\n        uint256 inactivityPeriod;\r\n        bool exists;\r\n        Beneficiary[] beneficiaries;\r\n    }\r\n\r\n    uint256 public nextEstateId = 1;\r\n\r\n    mapping(uint256 => Estate) private estates;\r\n\r\n    // ETH deposited into each estate, measured in wei.\r\n    mapping(uint256 => uint256) private estateBalances;\r\n\r\n    event EstateCreated(\r\n        uint256 indexed estateId,\r\n        address indexed owner,\r\n        uint256 inactivityPeriod\r\n    );\r\n\r\n    event BeneficiaryAdded(\r\n        uint256 indexed estateId,\r\n        address indexed wallet,\r\n        uint256 sharePercent\r\n    );\r\n\r\n    event CheckIn(\r\n        uint256 indexed estateId,\r\n        uint256 timestamp\r\n    );\r\n\r\n    event DepositMade(\r\n        uint256 indexed estateId,\r\n        address indexed depositor,\r\n        uint256 amount\r\n    );\r\n\r\n    modifier onlyEstateOwner(uint256 estateId) {\r\n        require(estates[estateId].exists, \"Estate does not exist\");\r\n        require(\r\n            estates[estateId].owner == msg.sender,\r\n            \"Only estate owner\"\r\n        );\r\n        _;\r\n    }\r\n\r\n    function createEstate(\r\n        uint256 inactivityPeriod\r\n    ) external returns (uint256 estateId) {\r\n        require(\r\n            inactivityPeriod >= 1 days,\r\n            \"Period must be at least one day\"\r\n        );\r\n\r\n        estateId = nextEstateId++;\r\n\r\n        Estate storage estate = estates[estateId];\r\n        estate.owner = msg.sender;\r\n        estate.lastCheckIn = block.timestamp;\r\n        estate.inactivityPeriod = inactivityPeriod;\r\n        estate.exists = true;\r\n\r\n        emit EstateCreated(\r\n            estateId,\r\n            msg.sender,\r\n            inactivityPeriod\r\n        );\r\n    }\r\n\r\n    function addBeneficiary(\r\n        uint256 estateId,\r\n        address wallet,\r\n        uint256 sharePercent\r\n    ) external onlyEstateOwner(estateId) {\r\n        require(wallet != address(0), \"Invalid wallet\");\r\n        require(wallet != msg.sender, \"Owner cannot be beneficiary\");\r\n        require(sharePercent > 0, \"Share must be greater than zero\");\r\n        require(sharePercent <= 100, \"Share cannot exceed 100\");\r\n\r\n        Estate storage estate = estates[estateId];\r\n        uint256 totalShare;\r\n\r\n        for (uint256 i = 0; i < estate.beneficiaries.length; i++) {\r\n            require(\r\n                estate.beneficiaries[i].wallet != wallet,\r\n                \"Beneficiary already exists\"\r\n            );\r\n\r\n            totalShare += estate.beneficiaries[i].sharePercent;\r\n        }\r\n\r\n        require(\r\n            totalShare + sharePercent <= 100,\r\n            \"Total shares exceed 100\"\r\n        );\r\n\r\n        estate.beneficiaries.push(\r\n            Beneficiary({\r\n                wallet: wallet,\r\n                sharePercent: sharePercent\r\n            })\r\n        );\r\n\r\n        emit BeneficiaryAdded(estateId, wallet, sharePercent);\r\n    }\r\n\r\n    function checkIn(\r\n        uint256 estateId\r\n    ) external onlyEstateOwner(estateId) {\r\n        Estate storage estate = estates[estateId];\r\n        estate.lastCheckIn = block.timestamp;\r\n\r\n        emit CheckIn(estateId, block.timestamp);\r\n    }\r\n\r\n    // Deposit ETH into an estate owned by the caller.\r\n    function depositToEstate(\r\n        uint256 estateId\r\n    ) external payable onlyEstateOwner(estateId) {\r\n        require(msg.value > 0, \"Deposit must be greater than zero\");\r\n\r\n        estateBalances[estateId] += msg.value;\r\n\r\n        emit DepositMade(estateId, msg.sender, msg.value);\r\n    }\r\n\r\n    // Read the amount recorded for this estate, in wei.\r\n    function getEstateBalance(\r\n        uint256 estateId\r\n    ) external view returns (uint256) {\r\n        require(estates[estateId].exists, \"Estate does not exist\");\r\n\r\n        return estateBalances[estateId];\r\n    }\r\n\r\n    function getEstate(\r\n        uint256 estateId\r\n    )\r\n        external\r\n        view\r\n        returns (\r\n            address owner,\r\n            uint256 lastCheckIn,\r\n            uint256 inactivityPeriod,\r\n            uint256 beneficiaryCount\r\n        )\r\n    {\r\n        require(estates[estateId].exists, \"Estate does not exist\");\r\n\r\n        Estate storage estate = estates[estateId];\r\n\r\n        return (\r\n            estate.owner,\r\n            estate.lastCheckIn,\r\n            estate.inactivityPeriod,\r\n            estate.beneficiaries.length\r\n        );\r\n    }\r\n\r\n    function getBeneficiary(\r\n        uint256 estateId,\r\n        uint256 index\r\n    )\r\n        external\r\n        view\r\n        returns (address wallet, uint256 sharePercent)\r\n    {\r\n        require(estates[estateId].exists, \"Estate does not exist\");\r\n        require(\r\n            index < estates[estateId].beneficiaries.length,\r\n            \"Invalid beneficiary index\"\r\n        );\r\n\r\n        Beneficiary storage beneficiary =\r\n            estates[estateId].beneficiaries[index];\r\n\r\n        return (beneficiary.wallet, beneficiary.sharePercent);\r\n    }\r\n\r\n    function isInactive(\r\n        uint256 estateId\r\n    ) external view returns (bool) {\r\n        require(estates[estateId].exists, \"Estate does not exist\");\r\n\r\n        Estate storage estate = estates[estateId];\r\n\r\n        return block.timestamp >=\r\n            estate.lastCheckIn + estate.inactivityPeriod;\r\n    }\r\n}\r\n"
+      }
+    }
+  }
+}
