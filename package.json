@@ -2,6 +2,12 @@
   "name": "blockchain",
   "version": "1.0.0",
   "type": "module",
+  "scripts": {
+    "test": "hardhat test",
+    "chain": "hardhat node",
+    "deploy:local": "hardhat run scripts/deploy-local.ts --network localhost",
+    "deploy:sepolia": "hardhat ignition deploy ignition/modules/WarisEstate.ts --network sepolia"
+  },
   "devDependencies": {
     "@nomicfoundation/hardhat-ethers": "^4.2.1",
     "@nomicfoundation/hardhat-ignition": "^3.1.9",

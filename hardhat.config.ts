@@ -1,4 +1,3 @@
-
 import hardhatToolboxMochaEthersPlugin from "@nomicfoundation/hardhat-toolbox-mocha-ethers";
 import { configVariable, defineConfig } from "hardhat/config";
 
@@ -8,10 +7,16 @@ export default defineConfig({
     profiles: {
       default: {
         version: "0.8.34",
+        settings: {
+          // Prague is live on Ethereum mainnet and Sepolia, so the bytecode
+          // runs the same locally and on the public test network.
+          evmVersion: "prague",
+        },
       },
       production: {
         version: "0.8.34",
         settings: {
+          evmVersion: "prague",
           optimizer: {
             enabled: true,
             runs: 200,
